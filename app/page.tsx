@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useCallback, DragEvent } from 'react';
+import Image from 'next/image';
 
 interface RecordRow {
   institucion: string;
@@ -26,8 +27,9 @@ export default function HomePage() {
   const [errors, setErrors]           = useState<string[]>([]);
   const [loading, setLoading]         = useState(false);
   const [dragOver, setDragOver]       = useState(false);
-  const [title1, setTitle1]           = useState('CARTERA GENERAL CARTERAS GRUPO CAMPBELL');
-  const [title2, setTitle2]           = useState('CARTERA SEGUROS DEL ESTADO');
+  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [cartera, setCartera]         = useState('CARTERA GENERAL CARTERAS GRUPO CAMPBELL');
+  const [aseguradora, setAseguradora] = useState('CARTERA SEGUROS DEL ESTADO');
 
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -46,8 +48,13 @@ export default function HomePage() {
     addFiles(e.dataTransfer.files);
   };
 
-  const removeFile = (name: string) =>
-    setFiles(prev => prev.filter(f => f.name !== name));
+  const clearAll = () => {
+    setFiles([]);
+    setRecords([]);
+    setErrors([]);
+    if (downloadUrl) URL.revokeObjectURL(downloadUrl);
+    setDownloadUrl(null);
+  };
 
   const handleSubmit = async () => {
     if (!files.length) return;
@@ -58,13 +65,19 @@ export default function HomePage() {
     setDownloadUrl(null);
 
     try {
-      const fd = new FormData();
-      files.forEach(f => fd.append('files', f));
-      fd.append('title1', title1);
-      fd.append('title2', title2);
+      const makeForm = () => {
+        const fd = new FormData();
+        files.forEach(f => fd.append('files', f));
+        fd.append('title1', cartera);
+        fd.append('title2', aseguradora);
+        return fd;
+      };
 
-      // 1) Get preview JSON
-      const previewRes = await fetch('/api/preview', { method: 'POST', body: fd });
+      const [previewRes, processRes] = await Promise.all([
+        fetch('/api/preview', { method: 'POST', body: makeForm() }),
+        fetch('/api/process', { method: 'POST', body: makeForm() }),
+      ]);
+
       if (previewRes.ok) {
         const data = await previewRes.json();
         setRecords(data.records ?? []);
@@ -72,18 +85,11 @@ export default function HomePage() {
         if (errs.length) setErrors(errs);
       }
 
-      // 2) Get the Excel file
-      const fd2 = new FormData();
-      files.forEach(f => fd2.append('files', f));
-      fd2.append('title1', title1);
-      fd2.append('title2', title2);
-      const res = await fetch('/api/process', { method: 'POST', body: fd2 });
-
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
+      if (!processRes.ok) {
+        const body = await processRes.json().catch(() => ({}));
         setErrors(prev => [...prev, body.error ?? 'Error al procesar.']);
       } else {
-        const blob = await res.blob();
+        const blob = await processRes.blob();
         setDownloadUrl(URL.createObjectURL(blob));
       }
     } catch (err) {
@@ -96,18 +102,29 @@ export default function HomePage() {
   const totalCantidad = records.reduce((s, r) => s + r.cantidad, 0);
   const totalValor    = records.reduce((s, r) => s + r.valor, 0);
   const totalSaldo    = records.reduce((s, r) => s + r.saldo, 0);
+  const con2026       = records.filter(r => r.tiene_2026).length;
 
   return (
     <div className="page">
+
+      {/* ── Header ── */}
       <header className="site-header">
-        <div>
-          <h1>Consolidados de Cartera</h1>
-          <p>Carga archivos Excel por IPS y genera el CONSOLIDADOS en formato exacto</p>
+        <div className="site-header-left">
+          <Image src="/logo.svg" alt="Robot Excel" width={52} height={52} className="header-logo" />
+          <div>
+            <h1>Consolidados de Cartera</h1>
+            <p>Carga los Excel de cada IPS y genera el archivo consolidado listo para descargar</p>
+          </div>
         </div>
+        <span className="header-badge">La Previsora · Estado de Cuenta</span>
       </header>
 
+      {/* ── Upload panel ── */}
       <div className="panel">
-        <h2>Archivos Excel (.xlsx)</h2>
+        <div className="panel-title">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
+          Paso 1 — Carga los archivos Excel de las IPS
+        </div>
 
         <label
           className={`dropzone${dragOver ? ' drag-over' : ''}`}
@@ -116,76 +133,131 @@ export default function HomePage() {
           onDrop={onDrop}
           onClick={() => inputRef.current?.click()}
         >
-          <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-            <path d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M12 12V4m0 0L8 8m4-4l4 4" strokeLinecap="round" strokeLinejoin="round"/>
-          </svg>
-          <strong>Arrastra archivos aquí o haz clic para seleccionar</strong>
-          <small>Soporta: formato La Previsora / Seguros y formato Estado de Cuenta</small>
+          <div className="dropzone-icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
+          </div>
+          <strong>Arrastra los archivos .xlsx aquí</strong>
+          <small>o haz clic para seleccionarlos desde tu computador</small>
         </label>
         <input ref={inputRef} type="file" accept=".xlsx" multiple
           onChange={e => addFiles(e.target.files)} />
 
         {files.length > 0 && (
-          <div className="file-count">
-            {files.length} archivo(s) — haz clic en ✕ para quitar:
-            <ul style={{ marginTop: 6, paddingLeft: 18 }}>
-              {files.map(f => (
-                <li key={f.name} style={{ fontSize: '.83rem', display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3 }}>
-                  📄 {f.name}
-                  <button onClick={() => removeFile(f.name)}
-                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#991b1b', fontWeight: 700 }}>
-                    ✕
-                  </button>
-                </li>
-              ))}
-            </ul>
+          <div className="file-list">
+            {files.map(f => (
+              <div key={f.name} className="file-chip">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                <span title={f.name}>{f.name}</span>
+                <button onClick={() => setFiles(prev => prev.filter(x => x.name !== f.name))} title="Quitar">✕</button>
+              </div>
+            ))}
           </div>
         )}
 
-        <div className="titles-grid">
-          <div className="field">
-            <label>Título línea 1</label>
-            <input value={title1} onChange={e => setTitle1(e.target.value)} />
-          </div>
-          <div className="field">
-            <label>Título línea 2</label>
-            <input value={title2} onChange={e => setTitle2(e.target.value)} />
-          </div>
+        {/* Advanced: rename titles */}
+        <div className="advanced-toggle" onClick={() => setShowAdvanced(v => !v)}>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ transform: showAdvanced ? 'rotate(90deg)' : 'none', transition: 'transform .2s' }}><polyline points="9 18 15 12 9 6"/></svg>
+          Opciones avanzadas — cambiar nombre del reporte en el Excel
         </div>
 
-        <button className="btn-primary" onClick={handleSubmit} disabled={loading || !files.length}>
-          {loading
-            ? <><div className="spinner" /> Procesando…</>
-            : '▶ Generar CONSOLIDADOS'}
-        </button>
+        {showAdvanced && (
+          <div className="titles-grid">
+            <div className="field">
+              <label>Nombre del grupo / cartera</label>
+              <input
+                value={cartera}
+                onChange={e => setCartera(e.target.value)}
+                placeholder="Ej: CARTERA GRUPO CAMPBELL"
+              />
+              <span className="field-hint">Aparece en la línea 1 del Excel generado</span>
+            </div>
+            <div className="field">
+              <label>Nombre de la aseguradora</label>
+              <input
+                value={aseguradora}
+                onChange={e => setAseguradora(e.target.value)}
+                placeholder="Ej: SEGUROS DEL ESTADO"
+              />
+              <span className="field-hint">Aparece en la línea 2 del Excel generado</span>
+            </div>
+          </div>
+        )}
+
+        <div className="actions-row">
+          <button className="btn-primary" onClick={handleSubmit} disabled={loading || !files.length}>
+            {loading ? (
+              <><div className="spinner" /> Procesando archivos…</>
+            ) : (
+              <>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+                Generar CONSOLIDADOS
+              </>
+            )}
+          </button>
+          {(files.length > 0 || records.length > 0) && !loading && (
+            <button className="btn-ghost" onClick={clearAll}>Limpiar todo</button>
+          )}
+        </div>
       </div>
 
+      {/* ── Errors ── */}
       {errors.length > 0 && (
         <div className="alert alert-error">
-          <strong>Advertencias / errores:</strong>
-          <ul>{errors.map((e, i) => <li key={i}>{e}</li>)}</ul>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{flexShrink:0}}><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          <div>
+            <strong>Algunos archivos tuvieron problemas</strong>
+            <ul>{errors.map((e, i) => <li key={i}>{e}</li>)}</ul>
+          </div>
         </div>
       )}
 
-      {downloadUrl && (
-        <div className="download-block">
-          <a href={downloadUrl} download="CONSOLIDADOS.xlsx">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M12 15V3m0 12l-4-4m4 4l4-4M2 17v2a2 2 0 002 2h16a2 2 0 002-2v-2" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
-            Descargar CONSOLIDADOS.xlsx
-          </a>
-          <span className="download-info">✓ {records.length} IPS procesadas</span>
-        </div>
+      {/* ── Stats + Download ── */}
+      {records.length > 0 && (
+        <>
+          <div className="stats-strip">
+            <div className="stat-card">
+              <span className="stat-label">IPS procesadas</span>
+              <span className="stat-value">{records.length}</span>
+              <span className="stat-sub">{con2026 > 0 ? `${con2026} con fechas en 2026` : 'Sin fechas en 2026'}</span>
+            </div>
+            <div className="stat-card">
+              <span className="stat-label">Total facturas</span>
+              <span className="stat-value">{fmtNum(totalCantidad)}</span>
+              <span className="stat-sub">registros consolidados</span>
+            </div>
+            <div className="stat-card">
+              <span className="stat-label">Cartera activa</span>
+              <span className="stat-value">$ {fmtNum(totalSaldo)}</span>
+              <span className="stat-sub">de $ {fmtNum(totalValor)} facturado</span>
+            </div>
+          </div>
+
+          {downloadUrl && (
+            <div className="download-banner">
+              <div className="download-banner-left">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                ¡Listo! Tu archivo CONSOLIDADOS está generado con {records.length} IPS
+              </div>
+              <a className="download-btn" href={downloadUrl} download="CONSOLIDADOS.xlsx">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 15V3m0 12l-4-4m4 4l4-4M2 17v2a2 2 0 002 2h16a2 2 0 002-2v-2"/></svg>
+                Descargar CONSOLIDADOS.xlsx
+              </a>
+            </div>
+          )}
+        </>
       )}
 
+      {/* ── Preview table ── */}
       {records.length > 0 && (
         <div className="panel">
-          <h2>Vista previa — hoja RESUMEN</h2>
+          <div className="panel-title">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="9" x2="9" y2="21"/></svg>
+            Paso 2 — Revisa el resumen antes de descargar
+          </div>
 
           <div className="table-wrap">
             <table className="summary-table">
-              <tbody>
+              <thead>
                 <tr className="totals-row">
                   <td></td><td></td>
                   <td>{fmtNum(totalCantidad)}</td>
@@ -193,8 +265,6 @@ export default function HomePage() {
                   <td>{fmtNum(totalSaldo)}</td>
                   <td></td>
                 </tr>
-              </tbody>
-              <thead>
                 <tr>
                   <th>INSTITUCIÓN</th>
                   <th>NIT</th>
@@ -206,7 +276,7 @@ export default function HomePage() {
               </thead>
               <tbody>
                 {records.map((rec, i) => (
-                  <tr key={i} style={{ background: i % 2 === 1 ? 'var(--row-alt)' : undefined }}>
+                  <tr key={i}>
                     <td>{rec.institucion}</td>
                     <td className="center">{rec.nit}</td>
                     <td className="right">{fmtNum(rec.cantidad)}</td>
@@ -219,23 +289,27 @@ export default function HomePage() {
             </table>
           </div>
 
-          <h2 style={{ marginTop: 24 }}>Validación de fechas de radicación</h2>
+          <div className="section-divider">Validación de fechas de radicación</div>
+
           <table className="check-table">
             <thead>
-              <tr><th>Archivo</th><th>Rango de fechas</th><th>¿Hay 2026?</th></tr>
+              <tr>
+                <th>Archivo</th>
+                <th>Rango de fechas</th>
+                <th>¿Contiene fechas del 2026?</th>
+              </tr>
             </thead>
             <tbody>
               {records.map((rec, i) => (
                 <tr key={i}>
-                  <td>{rec.archivo}</td>
-                  <td style={{ fontSize: '.83rem' }}>
-                    {rec.min_fecha && rec.max_fecha
-                      ? `${rec.min_fecha} a ${rec.max_fecha}`
-                      : 'Sin fechas detectadas'}
+                  <td style={{ fontSize: '.8rem', color: 'var(--muted)' }}>{rec.archivo}</td>
+                  <td>{rec.min_fecha && rec.max_fecha
+                    ? `${rec.min_fecha} — ${rec.max_fecha}`
+                    : <span style={{ color: 'var(--muted)' }}>Sin fechas detectadas</span>}
                   </td>
                   <td>
                     <span className={`badge ${rec.tiene_2026 ? 'badge-yes' : 'badge-no'}`}>
-                      {rec.tiene_2026 ? 'Sí' : 'No'}
+                      {rec.tiene_2026 ? '⚠ Sí, hay fechas 2026' : '✓ No'}
                     </span>
                   </td>
                 </tr>
@@ -244,6 +318,7 @@ export default function HomePage() {
           </table>
         </div>
       )}
+
     </div>
   );
 }

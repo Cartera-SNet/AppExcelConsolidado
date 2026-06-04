@@ -4,6 +4,7 @@ import './globals.css';
 export const metadata: Metadata = {
   title: 'Consolidados de Cartera',
   description: 'Genera el consolidado de cartera en formato Excel a partir de archivos IPS',
+  icons: { icon: '/favicon.svg' },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
