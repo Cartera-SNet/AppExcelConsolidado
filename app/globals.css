@@ -416,3 +416,73 @@ input[type="file"] { display: none; }
   padding: 4px;
   flex-shrink: 0;
 }
+
+/* ── Date filter card ── */
+.filter-card {
+  background: #f8fafc;
+  border: 1.5px solid var(--border);
+  border-radius: 12px;
+  padding: 16px 18px;
+  margin-bottom: 16px;
+}
+.filter-card-title {
+  font-size: .8rem;
+  font-weight: 700;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  margin-bottom: 12px;
+}
+.filter-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.filter-select {
+  flex: 1;
+  min-width: 240px;
+  padding: 9px 12px;
+  border: 1.5px solid var(--border);
+  border-radius: 8px;
+  font-size: .87rem;
+  font-family: inherit;
+  color: var(--text);
+  background: #fff;
+  outline: none;
+  cursor: pointer;
+  transition: border-color .2s;
+}
+.filter-select:focus { border-color: var(--accent); }
+
+.filter-date, .filter-year {
+  padding: 9px 12px;
+  border: 1.5px solid var(--border);
+  border-radius: 8px;
+  font-size: .87rem;
+  font-family: inherit;
+  color: var(--text);
+  background: #fff;
+  outline: none;
+  transition: border-color .2s;
+}
+.filter-date:focus, .filter-year:focus { border-color: var(--accent); }
+.filter-year { width: 90px; }
+
+.filter-summary { margin-top: 12px; }
+.filter-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 14px;
+  border-radius: 20px;
+  font-size: .82rem;
+  font-weight: 700;
+}
+.filter-badge-warn { background: #fef3c7; color: #92400e; }
+.filter-badge-ok   { background: var(--green-bg); color: var(--green); }
+
+@media (max-width: 640px) {
+  .filter-select { min-width: 100%; }
+  .filter-row    { flex-direction: column; align-items: stretch; }
+}

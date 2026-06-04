@@ -26,9 +26,16 @@ export async function POST(req: NextRequest) {
         const buffer = Buffer.from(await file.arrayBuffer());
         const rec = await parseExcelFile(buffer, file.name);
         records.push({
-          ...rec,
-          min_fecha: fmtDate(rec.min_fecha),
-          max_fecha: fmtDate(rec.max_fecha),
+          institucion: rec.institucion,
+          nit:         rec.nit,
+          cantidad:    rec.cantidad,
+          valor:       rec.valor,
+          saldo:       rec.saldo,
+          dpto:        rec.dpto,
+          all_dates:   rec.all_dates,   // ISO strings — filter applied client-side
+          min_fecha:   fmtDate(rec.min_fecha),
+          max_fecha:   fmtDate(rec.max_fecha),
+          archivo:     rec.archivo,
         });
       } catch (err: unknown) {
         errors.push(`${file.name}: ${err instanceof Error ? err.message : String(err)}`);
