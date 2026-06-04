@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Resumen de cartera</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+  <main class="page">
+    <section class="panel">
+      <h1>Resumen de cartera</h1>
+      <p class="subtitle">Carga uno o varios Excel y el sistema generará un resumen en el mismo formato de la tabla.</p>
+
+      <form method="post" enctype="multipart/form-data" class="upload-form">
+        <label for="files" class="dropzone">
+          <span>Selecciona archivos .xlsx</span>
+          <small id="file-count">Ningún archivo seleccionado</small>
+        </label>
+        <input id="files" name="files" type="file" accept=".xlsx" multiple>
+        <button type="submit">Procesar archivos</button>
+      </form>
+
+      {% if errors %}
+      <div class="alert error">
+        {% for error in errors %}
+          <div>{{ error }}</div>
+        {% endfor %}
+      </div>
+      {% endif %}
+
+      {% if message %}
+      <div class="alert ok">{{ message }}</div>
+      {% endif %}
+
+      {% if download_url %}
+      <div class="actions">
+        <a class="download-btn" href="{{ download_url }}">Descargar resumen en Excel</a>
+      </div>
+      {% endif %}
+    </section>
+
+    {% if records %}
+    <section class="panel">
+      <div class="table-wrap">
+        <table class="summary-table">
+          <tr class="totals-row">
+            <td></td>
+            <td></td>
+            <td>{{ "{:,}".format(total_cantidad|int) }}</td>
+            <td>{{ "{:,}".format(total_valor|round(0)|int) }}</td>
+            <td>{{ "{:,}".format(total_saldo|round(0)|int) }}</td>
+          </tr>
+          <tr>
+            <th>INSTITUCIÓN</th>
+            <th>NIT</th>
+            <th>CANTIDAD DE<br>FACTURAS</th>
+            <th>VALOR FACTURA</th>
+            <th>CARTERA ACTIVA</th>
+          </tr>
+          {% for item in records %}
+          <tr>
+            <td>{{ item.institucion }}</td>
+            <td class="center">{{ item.nit }}</td>
+            <td class="right">{{ "{:,}".format(item.cantidad|int) }}</td>
+            <td class="right">{{ "{:,}".format(item.valor|round(0)|int) }}</td>
+            <td class="right">{{ "{:,}".format(item.saldo|round(0)|int) }}</td>
+          </tr>
+          {% endfor %}
+        </table>
+      </div>
+
+      <h2>Validación de Fecha de radicación</h2>
+      <table class="check-table">
+        <tr>
+          <th>Archivo</th>
+          <th>Rango de fechas</th>
+          <th>¿Hay 2026?</th>
+        </tr>
+        {% for item in records %}
+        <tr>
+          <td>{{ item.archivo }}</td>
+          <td>
+            {% if item.min_fecha and item.max_fecha %}
+              {{ item.min_fecha.strftime('%d/%m/%Y') }} a {{ item.max_fecha.strftime('%d/%m/%Y') }}
+            {% else %}
+              Sin fechas detectadas
+            {% endif %}
+          </td>
+          <td>{{ 'Sí' if item.tiene_2026 else 'No' }}</td>
+        </tr>
+        {% endfor %}
+      </table>
+    </section>
+    {% endif %}
+  </main>
+
+  <script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>
