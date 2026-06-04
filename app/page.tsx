@@ -200,7 +200,6 @@ export default function HomePage() {
             <p>Carga los Excel de cada IPS y genera el archivo consolidado listo para descargar</p>
           </div>
         </div>
-        <span className="header-badge">Estado de Cuenta</span>
       </header>
 
       {/* Upload panel */}

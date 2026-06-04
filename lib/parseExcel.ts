@@ -46,11 +46,6 @@ function onlyDigits(s: string): string {
   return s.replace(/\D/g, '');
 }
 
-function lookupByNIT(rawNIT: string): { nombre: string; nit: string; dpto: string } | null {
-  const d = onlyDigits(rawNIT);
-  return IPS_MAP[d] ?? null;
-}
-
 /** Normalise text for label matching: remove accents, lowercase, collapse spaces */
 function norm(v: unknown): string {
   if (v === null || v === undefined) return '';
@@ -83,6 +78,75 @@ function strVal(ws: ExcelJS.Worksheet, row: number, col: number): string {
   const v = cv(ws, row, col);
   return v !== null ? String(v).trim() : '';
 }
+
+// ── Fuzzy IPS lookup ─────────────────────────────────────────────────────────
+
+const STOPWORDS = new Set(['DE','Y','EL','LA','LOS','LAS','DEL','AL','A','EN','CON']);
+
+/** Normalise a name for comparison: uppercase, remove accents, strip legal suffixes */
+function normName(s: string): string {
+  return s.toUpperCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/\s+/g, ' ')
+    .replace(/\bS\.A\.S\.?\b|\bSAS\b|\bS\.A\.?\b|\bIPS\b|\bLTDA\b/g, '')
+    .replace(/\./g, '')
+    .trim();
+}
+
+/** Word-based name similarity score (0–1) */
+function nameSimilarity(inputName: string, mapName: string): number {
+  const wi = new Set(normName(inputName).split(' ').filter(w => w && !STOPWORDS.has(w)));
+  const wm = new Set(normName(mapName).split(' ').filter(w => w && !STOPWORDS.has(w)));
+  if (!wi.size || !wm.size) return 0;
+  const overlap = [...wi].filter(w => wm.has(w)).length;
+  const jaccard = overlap / new Set([...wi, ...wm]).size;
+  // Containment: if all map words appear in input (e.g. "URGETRAUMA" ⊂ "URGETRAUMA SAN FERNANDO")
+  const containment = overlap / wm.size;
+  return Math.max(jaccard, containment * 0.9);
+}
+
+/** NIT digit similarity: fraction of matching digits at same positions */
+function nitSimilarity(a: string, b: string): number {
+  const da = a.padEnd(10, '_');
+  const db = b.padEnd(10, '_');
+  let matches = 0;
+  for (let i = 0; i < 10; i++) if (da[i] === db[i]) matches++;
+  return matches / 10;
+}
+
+/**
+ * Resolve an IPS entry from the map using:
+ *   1. Exact NIT digit match
+ *   2. Fuzzy: NIT ≥80% similar AND name ≥40% similar
+ *   3. Name-only: ≥70% name similarity (for when NIT is missing/garbled)
+ */
+function lookupIPS(rawNIT: string, rawName = ''): { nombre: string; nit: string; dpto: string } | null {
+  const digits = onlyDigits(rawNIT);
+
+  // 1. Exact NIT match
+  if (digits && IPS_MAP[digits]) return IPS_MAP[digits];
+
+  let best: { nombre: string; nit: string; dpto: string } | null = null;
+  let bestScore = 0;
+
+  for (const [key, info] of Object.entries(IPS_MAP)) {
+    const nitScore  = digits ? nitSimilarity(digits, key) : 0;
+    const nameScore = rawName ? nameSimilarity(rawName, info.nombre) : 0;
+
+    // Fuzzy NIT + name confirmation
+    const fuzzyMatch = nitScore >= 0.8 && nameScore >= 0.4;
+    // Name-only when NIT is weak/missing
+    const nameOnly = nameScore >= 0.7;
+
+    if (fuzzyMatch || nameOnly) {
+      const score = nitScore * 0.5 + nameScore * 0.5;
+      if (score > bestScore) { bestScore = score; best = info; }
+    }
+  }
+
+  return best;
+}
+
 
 /**
  * Scan a region for a cell whose normalised text contains `needle`.
@@ -202,7 +266,7 @@ function parseFormatA(ws: ExcelJS.Worksheet, filename: string): ParsedRecord {
 
   // ── 4. Resolve IPS identity from NIT ─────────────────────────────────────
   if (!rawNIT) rawNIT = filename;
-  const ips = lookupByNIT(rawNIT);
+  const ips = lookupIPS(rawNIT, institucionName);
 
   return {
     institucion: (ips?.nombre ?? institucionName) || filename,
@@ -288,7 +352,7 @@ function parseFormatB(ws: ExcelJS.Worksheet, filename: string): ParsedRecord {
   if (saldo    === 0) saldo    = dSaldo;
 
   // ── 5. Resolve IPS identity ───────────────────────────────────────────────
-  const ips = lookupByNIT(rawNIT);
+  const ips = lookupIPS(rawNIT, filename);
 
   return {
     institucion: ips?.nombre ?? filename,
