@@ -1,46 +1,36 @@
-# Resumen de cartera
+This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
-Aplicación local en Flask para cargar varios archivos Excel `.xlsx`, generar un resumen en el mismo formato de la tabla y validar si existe `Fecha de radicación` en 2026.
+## Getting Started
 
-## Requisitos
-
-- Python 3.10 o superior
-- pip
-
-## Instalación
+First, run the development server:
 
 ```bash
-pip install -r requirements.txt
+npm run dev
+# or
+yarn dev
+# or
+pnpm dev
+# or
+bun dev
 ```
 
-## Ejecución
+Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
-```bash
-python app.py
-```
+You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
-Luego abre en el navegador:
+This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
-```text
-http://127.0.0.1:5000
-```
+## Learn More
 
-## Qué hace
+To learn more about Next.js, take a look at the following resources:
 
-- Detecta la fila de encabezados por la columna `Fecha de radicación`
-- Toma la `Razón social del prestador`
-- Cuenta facturas por `Número de reclamo`
-- Suma `Valor neto de la reclamación`
-- Suma `Valor saldo de la reclamación`
-- Genera un Excel con el mismo formato del resumen
-- Indica si hay fechas de radicación en 2026
+- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
+- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
 
-## Supuesto principal
+You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
 
-Los Excel deben venir con una estructura parecida a la de tus archivos actuales, incluyendo estas columnas:
+## Deploy on Vercel
 
-- `Razón social del prestador`
-- `Número de reclamo`
-- `Fecha de radicación`
-- `Valor neto de la reclamación`
-- `Valor saldo de la reclamación`
+The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+
+Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
